@@ -13,6 +13,11 @@ class MemoryReaderWriter
 
     public MemoryReaderWriter(string processName)
     {
+        int loops = 0;
+        connect_process_loop:
+
+        if(loops > 60) { Environment.Exit(0); } //if no connection to ff7.exe in 15s then exit
+
         Process[] processes = Process.GetProcessesByName(processName);
 
         if (processes.Length > 0)
@@ -20,7 +25,9 @@ class MemoryReaderWriter
             process = processes[0];
         } else
         {
-            Environment.Exit(0);
+            Thread.Sleep(250);
+            loops++;
+            goto connect_process_loop;
         }
     }
 
@@ -45,7 +52,13 @@ class MemoryReaderWriter
     public int ReadMemoryAsInt(IntPtr address, int bytesToRead)
     {
         byte[] buffer = ReadMemory(address, bytesToRead);
-        int value = BitConverter.ToInt32(buffer, 0);
+        int value = 0;
+
+        for (int i = 0; i < bytesToRead; i++)
+        {
+            value |= (buffer[i] & 0xFF) << (i * 8);
+        }
+
         return value;
     }
 
@@ -145,17 +158,12 @@ class Program
     {
         MemoryReaderWriter memoryReaderWriter = new MemoryReaderWriter("ff7");
 
-        if (!memoryReaderWriter.IsProcessRunning())
-        {
-            Environment.Exit(0);
-        }
-
-        string adressXmlPath = "adress.xml";
-        string configXmlPath = "config.xml";
-        string valeurLang;
         string executablePath = Assembly.GetEntryAssembly().Location;
         string executableDirectory = Path.GetDirectoryName(executablePath);
         string iniFilePath = Path.Combine(executableDirectory, "FF7_Multi_Trainer.ini");
+        string adressXmlPath = Path.GetDirectoryName(executablePath) + @"\adress.xml";
+        string configXmlPath = Path.GetDirectoryName(executablePath) + @"\config.xml";
+        string valeurLang;
 
         using (StreamReader reader = new StreamReader(iniFilePath))
         {
@@ -177,7 +185,6 @@ class Program
             bool conditions_ok = true;
             int current_int;
             int current_int_condition;
-
            
             if (current_value != Convert.ToInt32(result["old_value"]))
             {
@@ -199,6 +206,7 @@ class Program
                     if (result["action_condition"].ToString().Trim() == "change_value")
                     {
                         memoryReaderWriter.WriteIntMemory(new IntPtr(int.Parse((string)result["action_type_hext"], System.Globalization.NumberStyles.HexNumber)), Convert.ToInt32((string)result["action_value"]));
+                        Console.WriteLine("value : " + result["action_type_hext"] + " => " + result["action_value"]);
                     }
 
                     if (result["action_condition"].ToString().Trim() == "use_files")
@@ -206,11 +214,9 @@ class Program
 
                        DirectoryInfo executableDirectoryDI = new DirectoryInfo(Path.GetDirectoryName(executablePath));
                        DirectoryInfo sourceDirectoryDI = new DirectoryInfo(result["action_condition_folder"] + @"\" + result["action_value"]);
-
-                        FolderCopyAll(sourceDirectoryDI, executableDirectoryDI);
-                    }
-
-                    
+                       FolderCopyAll(sourceDirectoryDI, executableDirectoryDI);
+                       Console.WriteLine("files => " + result["action_value"]);
+                    } 
                 }
             }
         }
