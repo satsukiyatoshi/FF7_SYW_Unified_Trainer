@@ -69,11 +69,21 @@ class MemoryReaderWriter
         WriteProcessMemory(process.Handle, address, value, value.Length, out bytesWritten);
     }
 
-    public void WriteIntMemory(IntPtr address, int value)
+    public void WriteIntMemory(IntPtr address, int value, int bytesToWrite)
     {
-        byte[] bytes = BitConverter.GetBytes(value);
+        byte[] bytes;
+        if (bytesToWrite == 1)
+        {
+            bytes = new byte[] { (byte)value };
+        }
+        else
+        {
+            bytes = BitConverter.GetBytes(value);
+        }
+
         IntPtr bytesWritten;
         WriteProcessMemory(process.Handle, address, bytes, bytes.Length, out bytesWritten);
+
     }
 
     private byte[] HexStringToBytes(string hex)
@@ -185,15 +195,14 @@ class Program
             bool conditions_ok = true;
             int current_int;
             int current_int_condition;
-           
-            if (current_value != Convert.ToInt32(result["old_value"]))
-            {
-                result["old_value"] = current_value;
 
                 foreach (var condition in result["conditions"] as List<Dictionary<string, object>>)
                 {
                     current_int = memoryReaderWriter.ReadMemoryAsInt((IntPtr)Convert.ToInt32((string)condition["value_hext"], 16), Convert.ToInt32((string)condition["bytes"]));
                     current_int_condition = Convert.ToInt32(condition["value_condition"]);
+
+                    //Console.WriteLine(current_int);
+                    //Console.WriteLine(current_int_condition);
                     
                     if ((string)condition["order_condition"] == "-") { if (current_int >= current_int_condition) { conditions_ok = false; break; } }
                     if ((string)condition["order_condition"] == "+") { if (current_int <= current_int_condition) { conditions_ok = false; break; } }
@@ -201,11 +210,14 @@ class Program
                     if ((string)condition["order_condition"] == "!") { if (current_int == current_int_condition) { conditions_ok = false; break; } }
                 }
 
-                if (conditions_ok == true)
+                if (conditions_ok == true && current_value != Convert.ToInt32(result["old_value"]))
                 {
+                    result["old_value"] = current_value;
+
                     if (result["action_condition"].ToString().Trim() == "change_value")
                     {
-                        memoryReaderWriter.WriteIntMemory(new IntPtr(int.Parse((string)result["action_type_hext"], System.Globalization.NumberStyles.HexNumber)), Convert.ToInt32((string)result["action_value"]));
+                        //memoryReaderWriter.WriteIntMemory(new IntPtr(int.Parse((string)result["action_type_hext"], System.Globalization.NumberStyles.HexNumber)), Convert.ToInt32((string)result["action_value"]));
+                        memoryReaderWriter.WriteIntMemory(new IntPtr(int.Parse((string)result["action_type_hext"], System.Globalization.NumberStyles.HexNumber)), Convert.ToInt32((string)result["action_value"]), Convert.ToInt32((string)result["action_type_bytes"]));
                         Console.WriteLine("value : " + result["action_type_hext"] + " => " + result["action_value"]);
                     }
 
@@ -218,7 +230,6 @@ class Program
                        Console.WriteLine("files => " + result["action_value"]);
                     } 
                 }
-            }
         }
 
         Thread.Sleep(25);
