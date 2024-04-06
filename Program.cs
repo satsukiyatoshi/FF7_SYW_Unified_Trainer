@@ -107,6 +107,10 @@ class MemoryReaderWriter
 
 class Program
 {
+    [DllImport("user32.dll")]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    private const int SW_MINIMIZE = 6;
+
     static List<Dictionary<string, object>> ProcessXmlFiles(string adressXmlPath, string configXmlPath, string valeurLang)
     {
         List<Dictionary<string, object>> results = new List<Dictionary<string, object>>();
@@ -163,10 +167,30 @@ class Program
         return results;
     }
 
+    static void Trainer_infos()
+    {
+        Console.Clear();
+
+        Console.WriteLine("-----------------------");
+        Console.WriteLine("FF7 SYW Unfied trainer");
+        Console.WriteLine("-----------------------");
+        Console.WriteLine("This command line tool is used by some mods by FF7SYWU, you can reduct it but don't close it, it'll close itself at the end of play.");
+        Console.WriteLine("This windows isn't hidded to avoid antivirus false positive.");
+        Console.WriteLine("-----------------------");
+        Console.WriteLine();
+        Console.WriteLine("-----------------------");
+        Console.WriteLine("Logs (lasts informations)");
+        Console.WriteLine("-----------------------");
+    }
 
     static void Main(string[] args)
     {
+        IntPtr hWnd = Process.GetCurrentProcess().MainWindowHandle;
+        ShowWindow(hWnd, SW_MINIMIZE);
+
         MemoryReaderWriter memoryReaderWriter = new MemoryReaderWriter("ff7");
+
+        Trainer_infos();
 
         string executablePath = Assembly.GetEntryAssembly().Location;
         string executableDirectory = Path.GetDirectoryName(executablePath);
@@ -200,9 +224,6 @@ class Program
                 {
                     current_int = memoryReaderWriter.ReadMemoryAsInt((IntPtr)Convert.ToInt32((string)condition["value_hext"], 16), Convert.ToInt32((string)condition["bytes"]));
                     current_int_condition = Convert.ToInt32(condition["value_condition"]);
-
-                    //Console.WriteLine(current_int);
-                    //Console.WriteLine(current_int_condition);
                     
                     if ((string)condition["order_condition"] == "-") { if (current_int >= current_int_condition) { conditions_ok = false; break; } }
                     if ((string)condition["order_condition"] == "+") { if (current_int <= current_int_condition) { conditions_ok = false; break; } }
@@ -216,8 +237,8 @@ class Program
 
                     if (result["action_condition"].ToString().Trim() == "change_value")
                     {
-                        //memoryReaderWriter.WriteIntMemory(new IntPtr(int.Parse((string)result["action_type_hext"], System.Globalization.NumberStyles.HexNumber)), Convert.ToInt32((string)result["action_value"]));
                         memoryReaderWriter.WriteIntMemory(new IntPtr(int.Parse((string)result["action_type_hext"], System.Globalization.NumberStyles.HexNumber)), Convert.ToInt32((string)result["action_value"]), Convert.ToInt32((string)result["action_type_bytes"]));
+                        if (Console.CursorTop > 29) { Trainer_infos(); }
                         Console.WriteLine("value : " + result["action_type_hext"] + " => " + result["action_value"]);
                     }
 
@@ -227,6 +248,7 @@ class Program
                        DirectoryInfo executableDirectoryDI = new DirectoryInfo(Path.GetDirectoryName(executablePath));
                        DirectoryInfo sourceDirectoryDI = new DirectoryInfo(result["action_condition_folder"] + @"\" + result["action_value"]);
                        FolderCopyAll(sourceDirectoryDI, executableDirectoryDI);
+                       if (Console.CursorTop > 29) { Trainer_infos(); }
                        Console.WriteLine("files => " + result["action_value"]);
                     } 
                 }
